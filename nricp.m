@@ -73,6 +73,9 @@ end
 if ~isfield(Options, 'normalWeighting')
     Options.normalWeighting = 1;
 end
+if ~isfield(Options, 'GPU')
+    Options.GPU = 0;
+end
 
 % Optionally plot source and target surfaces
 if Options.plot == 1
@@ -174,14 +177,14 @@ for i = 1:nAlpha
     % Update stiffness
     alpha = Options.alphaSet(i);
     
-    % set oldX to be very different to X so that norm(X - oldX) is large on 
-	% first iteration
-	oldX = 10*X;
+%     % set oldX to be very different to X so that norm(X - oldX) is large on 
+% 	% first iteration
+% 	oldX = 10*X;
     
     % Enter inner loop. For each stiffness setting alternate between 
     % updating correspondences and getting optimal transformations X. 
     % Break the loop when consecutive transformations are similar.
-    while norm(X - oldX) >= Options.epsilon 
+    while true
         
         % Transform source points by current transformation matrix X
         vertsTransformed = D*X;
@@ -258,41 +261,65 @@ for i = 1:nAlpha
 
         % Get optimal transformation X and remember old transformation oldX
         oldX = X;
-        X = (A' * A) \ (A' * B);
+               
+tic;
+        %spparms('spumoni',2);        % debug
+        if Options.GPU
+            % GPU
+            gd = gpuDevice;
+            X = zeros(size(A,2), size(B,2));
+            AtA = gpuArray(A' * A);
+            for j = 1:size(B,2)
+                AtBj = gpuArray(A' * B(:,j));
+                Xj = pcg(AtA, AtBj, 1e-12, 1000);
+                X(:,j) = gather(Xj);
+            end
+            wait(gd);
+        else
+        	% CPU
+            X = (A' * A) \ (A' * B);
+            %X = A \ B;
+        end
+toc
+        
+        deltaX = norm(X - oldX);
+        if deltaX >= Options.epsilon 
+            break;
+        end
     end
 end
 
 % Compute transformed points 
 vertsTransformed = D*X;
 
-% If Options.useNormals == 1 project along surface normals to target 
-% surface, otherwise snap to closest points on target.
-if Options.useNormals == 1
-    disp('* Projecting transformed points onto target along surface normals...');
-    
-    % Get template surface normals
-    normalsTemplate = Source.normals;
-    
-    % Transform surface normals with the X matrix
-    N = sparse(nVertsSource, 4 * nVertsSource);
-    for i = 1:nVertsSource
-        N(i,(4 * i-3):(4 * i)) = [normalsTemplate(i,:) 1];
-    end
-    normalsTransformed = N*X;
-    
-    % Project normals to target surface
-    vertsTransformed = projectNormals(vertsTransformed, Target, ...
-                                       normalsTransformed);
-else
-    % Snap template points to nearest vertices on surface
-    targetId = knnsearch(vertsTarget, vertsTransformed);
-    corTargets = vertsTarget(targetId,:);
-    if Options.ignoreBoundary == 1
-        tarBoundary = ismember(targetId, bdr);
-        wVec = ~tarBoundary;
-    end
-    vertsTransformed(wVec,:) = corTargets(wVec,:);
-end
+% % If Options.useNormals == 1 project along surface normals to target 
+% % surface, otherwise snap to closest points on target.
+% if Options.useNormals == 1
+%     disp('* Projecting transformed points onto target along surface normals...');
+%     
+%     % Get template surface normals
+%     normalsTemplate = Source.normals;
+%     
+%     % Transform surface normals with the X matrix
+%     N = sparse(nVertsSource, 4 * nVertsSource);
+%     for i = 1:nVertsSource
+%         N(i,(4 * i-3):(4 * i)) = [normalsTemplate(i,:) 1];
+%     end
+%     normalsTransformed = N*X;
+%     
+%     % Project normals to target surface
+%     vertsTransformed = projectNormals(vertsTransformed, Target, ...
+%                                        normalsTransformed);
+% else
+%     % Snap template points to nearest vertices on surface
+%     targetId = knnsearch(vertsTarget, vertsTransformed);
+%     corTargets = vertsTarget(targetId,:);
+%     if Options.ignoreBoundary == 1
+%         tarBoundary = ismember(targetId, bdr);
+%         wVec = ~tarBoundary;
+%     end
+%     vertsTransformed(wVec,:) = corTargets(wVec,:);
+% end
 
 % Update plot and remove target mesh
 if Options.plot == 1
@@ -301,96 +328,4 @@ if Options.plot == 1
     pause(2);
 %     delete(p);
 end
-
-function [projections] = projectNormals(sourceVertices, Target, normals)
-% projectNormals takes a set of vertices and their surface normals and
-% projects them to a target surface.
-%
-% Inputs:
-%   sourceVertices: N x 3 vertices of source surface.
-%   Target: Structured object with fields - 
-%                   Target.vertices: V x 3 vertices of template model
-%                   Target.faces: D x 3 list of connected vertices.
-%   normals: N x 3 surface normals of sourceVertices.
-
-% Get number of source vertices
-nVerticesSource = size(sourceVertices, 1);
-
-% Pre-allocate space for projections
-projections = zeros(nVerticesSource, 3);
-
-% Loop over source vertices projecting onto the target surface
-for i=1:nVerticesSource
-    
-    % Get vertex and normal
-    vertex = sourceVertices(i,:);
-    normal = normals(i,:);
-    
-    % Define line in direction normal that passes through vertex
-    line = createLine3d(vertex, normal(1), normal(2), normal(3));
-    
-    % Compute the intersection of the line and the source surface
-    intersection = intersectLineMesh3d(line, Target.vertices, Target.faces); 
-    
-    % If multiple intersections choose the one closest to the source vertex
-    if ~isempty(intersection)
-        [~,I] = min(sqrt(sum((intersection - ...
-            repmat(vertex,size(intersection,1),1)).^2, 2)));
-        projections(i,:) = intersection(I,:);
-    else
-        % If no intersections just keep the source vertex position
-        projections(i,:) = vertex;
-    end
 end
-
-
-function [ samples ] = sampleVerts( Mesh, radius )
-% sampleVerts sub samples the vertices of a mesh. Vertices are selected 
-% so that no other nodes lie within a pre-determined radius.
-% 
-% Inputs:
-%   Mesh : structured object with fields:
-%                   Mesh.vertices: N x 3 vertices of Mesh.
-%                   Mesh.faces: M x 3 list of connected vertices.
-%   radius : controls the spacing of the vertices.
-
-samples = [];
-vertsLeft = Mesh.vertices;
-itt = 1;
-while size(vertsLeft, 1) > 0
-    nVertsLeft = size(vertsLeft, 1);
-    
-    % pick a sample from remaining points
-    vertN = randsample(nVertsLeft, 1);
-    vert = vertsLeft(vertN, :);
-    
-    % Add it to sample set
-    samples(itt,:) = vert;
-    
-    % Remove nearby vertices
-    idx = rangesearch(vertsLeft, vert, radius);
-    idRemove = idx{1};
-    vertsLeft(idRemove, :) = [];
-    
-    itt = itt + 1;
-end
-
-
-function bound = find_bound(pts, poly)
-%  From Iterative Closest Point: 
-% http://www.mathworks.com/matlabcentral/fileexchange/27804-iterative-closest-point
-
-% Boundary point determination. Given a set of 3D points and a
-% corresponding triangle representation, returns those point indices that
-% define the border/edge of the surface.
-% Correcting polygon indices and converting datatype 
-
-poly = double(poly);
-pts = double(pts);
-
-%Calculating freeboundary points:
-TR = triangulation(poly, pts);
-FF = freeBoundary(TR);
-
-%Output
-bound = FF(:,1);
