@@ -1,4 +1,4 @@
-function [ vertsTransformed, X ] = nricp( Source, Target, Options )
+function [ vertsTransformed, X ] = onricp( Source, Target, Options )
 % nricp performs an adaptive stiffness variant of non rigid ICP.
 %
 % This function deforms takes a dense set of landmarks points from a template
@@ -46,11 +46,14 @@ function [ vertsTransformed, X ] = nricp( Source, Target, Options )
 if ~isfield(Options, 'gamm')
     Options.gamm = 1;
 end
-if ~isfield(Options, 'epsilon')
-    Options.epsilon = 1e-4;
+if ~isfield(Options, 'beta')
+    Options.beta = 1;
 end
 if ~isfield(Options, 'lambda')
     Options.lambda = 1;
+end
+if ~isfield(Options, 'epsilon')
+    Options.epsilon = 1e-4;
 end
 if ~isfield(Options, 'alphaSet')
     Options.alphaSet = linspace(100, 10, 20);
@@ -73,9 +76,22 @@ end
 if ~isfield(Options, 'normalWeighting')
     Options.normalWeighting = 1;
 end
+if ~isfield(Options, 'normalDiffThreshold')
+    Options.normalWeighting = pi / 4;
+end
+if ~isfield(Options, 'useMarker')
+    Options.useMarker = 0;
+end
 if ~isfield(Options, 'GPU')
     Options.GPU = 0;
 end
+if ~isfield(Options, 'snapTarget')
+    Options.snapTarget = 0;
+end
+if ~isfield(Options, 'verbose')
+    Options.verbose = 0;
+end
+
 
 % Optionally plot source and target surfaces
 if Options.plot == 1
@@ -105,11 +121,34 @@ vertsTarget = Target.vertices;
 if Options.normalWeighting == 1
     normalsSource = Source.normals;
     normalsTarget = Target.normals;
+    N = sparse(nVertsSource, 4 * nVertsSource);
+    for j = 1:nVertsSource
+        N(j,(4 * j-3):(4 * j)) = [normalsSource(j,:) 1];
+    end
+end
+
+% Get landmark vertices of source and target
+if Options.useMarker == 1
+    % Get source markers xyz
+    markersSource = Source.markers;
+    nMarkersSource = size(markersSource, 1);
+    % Get target markers 
+    markersTarget = Target.markers;
+    
+    % Assume markers are xyz coordinates
+    markersSourseKnnId = knnsearch(vertsSource, markersSource);
+    DL = sparse(nMarkersSource, 4 * nVertsSource);
+    for i = 1:nMarkersSource
+        knnId = markersSourseKnnId(i);
+        DL(i,(4 * knnId-3):(4 * knnId)) = [vertsSource(knnId, :) 1];
+    end
+
+    UL = markersTarget;
 end
 
 % Get subset of target vertices if Options.biDirectional == 1
 if Options.biDirectional == 1
-    samplesTarget = sampleVerts(Target, 15);
+    samplesTarget = sampleVerts(Target, 0.15);
     nSamplesTarget = size(samplesTarget, 1);
 end
 
@@ -133,6 +172,7 @@ end
 wVec = ones(nVertsSource,1);
 
 % Get boundary vertex indices on target surface if required.
+% Need topological structure of target surface
 if Options.ignoreBoundary == 1
     bdr = find_bound(vertsTarget, Target.faces);
 end
@@ -172,20 +212,15 @@ nAlpha = numel(Options.alphaSet);
 % Enter outer loop of the non-rigid iterative closest point algorithm. The
 % outer loop iterates over stiffness parameters alpha.
 disp('* Performing non-rigid ICP...');
+nricpTime = tic;
 for i = 1:nAlpha
-    
     % Update stiffness
     alpha = Options.alphaSet(i);
-    
-%     % set oldX to be very different to X so that norm(X - oldX) is large on 
-% 	% first iteration
-% 	oldX = 10*X;
     
     % Enter inner loop. For each stiffness setting alternate between 
     % updating correspondences and getting optimal transformations X. 
     % Break the loop when consecutive transformations are similar.
     while true
-        
         % Transform source points by current transformation matrix X
         vertsTransformed = D*X;
         
@@ -197,36 +232,35 @@ for i = 1:nAlpha
 
         % Determine closest points on target U to transformed source points
         % pointsTransformed.
+        tic;    % knnTime
         targetId = knnsearch(vertsTarget, vertsTransformed);
+        knnTime = toc;
         U = vertsTarget(targetId,:);
         
+
         % Optionally give zero weightings to transformations associated
         % with boundary target vertices.
         if Options.ignoreBoundary == 1
             tarBoundary = ismember(targetId, bdr);
-            wVec = ~tarBoundary;
+            wVec = wVec .* ~tarBoundary;
         end
         
         % Optionally transform surface normals to compare with target and
         % give zero weight if surface and transformed normals do not have
         % similar angles.
         if Options.normalWeighting == 1
-            N = sparse(nVertsSource, 4 * nVertsSource);
-            for j = 1:nVertsSource
-                N(j,(4 * j-3):(4 * j)) = [normalsSource(j,:) 1];
-            end
             normalsTransformed = N*X;
             corNormalsTarget = normalsTarget(targetId,:);
             crossNormals = cross(corNormalsTarget, normalsTransformed);
             crossNormalsNorm = sqrt(sum(crossNormals.^2,2));
             dotNormals = dot(corNormalsTarget, normalsTransformed, 2);
             angle = atan2(crossNormalsNorm, dotNormals);
-            wVec = wVec .* (angle<pi/4);
+            wVec = wVec .* (angle < Options.normalDiffThreshold);
         end
             
         % Update weight matrix
         W = spdiags(wVec, 0, nVertsSource, nVertsSource);
-
+        
         % Get closest points on source tarD to target samples samplesTarget
         if Options.biDirectional == 1
             transformedId = knnsearch(vertsTransformed, samplesTarget);
@@ -247,6 +281,18 @@ for i = 1:nAlpha
             W * U;
             ];
         
+        % Concatentate additional terms if Options.useMarker == 1.
+        if Options.useMarker == 1
+            A = [...
+                A;
+                Options.beta .* DL
+                ];
+            B = [...
+                B;
+                Options.beta .* UL
+                ];
+        end
+        
         % Concatentate additional terms if Options.biDirectional == 1.
         if Options.biDirectional == 1
             A = [...
@@ -261,8 +307,9 @@ for i = 1:nAlpha
 
         % Get optimal transformation X and remember old transformation oldX
         oldX = X;
-               
-tic;
+        
+        tic;
+        %spparms('spumoni',0);
         %spparms('spumoni',2);        % debug
         if Options.GPU
             % GPU
@@ -277,49 +324,70 @@ tic;
             wait(gd);
         else
         	% CPU
-            X = (A' * A) \ (A' * B);
-            %X = A \ B;
+            % Time consume:
+            %   cholmod < spQR (4-5x)
+            %   matlab-suitesparse ~= suitesparse-matlab
+            
+            X = (A' * A) \ (A' * B);    % matlab-cholmod
+%             X = A \ B;      % matlab-suitesparseQR 
+%             [X, stats] = cholmod2(A' * A, A' * B);  % suitesparse-cholmod
+%             [X, info] = spqr_solve(A, B);  % suitesparse-spQR
+
         end
-toc
+        lsolverTime = toc;
         
         deltaX = norm(X - oldX);
-        if deltaX >= Options.epsilon 
+        
+        % print verbose information
+        if Options.verbose == 1
+            fprintf('alpha = %.2f, dX = %f, knnTime = %fs, lsolverTime = %fs\n', ...
+                alpha, deltaX, knnTime, lsolverTime);
+        end
+        
+        if deltaX <= Options.epsilon 
             break;
         end
     end
 end
+nricpTime = toc(nricpTime);
+if Options.verbose == 1
+    fprintf('\nNon-rigid ICP Time: %fs\n', nricpTime);
+end
+
 
 % Compute transformed points 
 vertsTransformed = D*X;
 
-% % If Options.useNormals == 1 project along surface normals to target 
-% % surface, otherwise snap to closest points on target.
-% if Options.useNormals == 1
-%     disp('* Projecting transformed points onto target along surface normals...');
-%     
-%     % Get template surface normals
-%     normalsTemplate = Source.normals;
-%     
-%     % Transform surface normals with the X matrix
-%     N = sparse(nVertsSource, 4 * nVertsSource);
-%     for i = 1:nVertsSource
-%         N(i,(4 * i-3):(4 * i)) = [normalsTemplate(i,:) 1];
-%     end
-%     normalsTransformed = N*X;
-%     
-%     % Project normals to target surface
-%     vertsTransformed = projectNormals(vertsTransformed, Target, ...
-%                                        normalsTransformed);
-% else
-%     % Snap template points to nearest vertices on surface
-%     targetId = knnsearch(vertsTarget, vertsTransformed);
-%     corTargets = vertsTarget(targetId,:);
-%     if Options.ignoreBoundary == 1
-%         tarBoundary = ismember(targetId, bdr);
-%         wVec = ~tarBoundary;
-%     end
-%     vertsTransformed(wVec,:) = corTargets(wVec,:);
-% end
+if Options.snapTarget == 1
+    % If Options.useNormals == 1 project along surface normals to target
+    % surface, otherwise snap to closest points on target.
+    if Options.useNormals == 1
+        disp('* Projecting transformed points onto target along surface normals...');
+        
+        % Get template surface normals
+        normalsTemplate = Source.normals;
+        
+        % Transform surface normals with the X matrix
+        N = sparse(nVertsSource, 4 * nVertsSource);
+        for i = 1:nVertsSource
+            N(i,(4 * i-3):(4 * i)) = [normalsTemplate(i,:) 1];
+        end
+        normalsTransformed = N*X;
+        
+        % Project normals to target surface
+        vertsTransformed = projectNormals(vertsTransformed, Target, ...
+            normalsTransformed);
+    else
+        % Snap template points to nearest vertices on surface
+        targetId = knnsearch(vertsTarget, vertsTransformed);
+        corTargets = vertsTarget(targetId,:);
+        if Options.ignoreBoundary == 1
+            tarBoundary = ismember(targetId, bdr);
+            wVec = ~tarBoundary;
+        end
+        vertsTransformed(wVec,:) = corTargets(wVec,:);
+    end
+end
 
 % Update plot and remove target mesh
 if Options.plot == 1
