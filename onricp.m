@@ -77,7 +77,7 @@ if ~isfield(Options, 'normalWeighting')
     Options.normalWeighting = 1;
 end
 if ~isfield(Options, 'normalDiffThreshold')
-    Options.normalWeighting = pi / 4;
+    Options.normalDiffThreshold = pi / 4;
 end
 if ~isfield(Options, 'useMarker')
     Options.useMarker = 0;
@@ -91,17 +91,22 @@ end
 if ~isfield(Options, 'verbose')
     Options.verbose = 0;
 end
+if ~isfield(Options, 'initX')
+    Options.initX = [];
+end
 
 
 % Optionally plot source and target surfaces
 if Options.plot == 1
     clf;
-    PlotTarget = rmfield(Target, 'normals');
+    PlotTarget.vertices = Target.vertices;
+    PlotTarget.faces = Target.faces;
     p = patch(PlotTarget, 'facecolor', 'b', 'EdgeColor',  'none', ...
               'FaceAlpha', 0.5);
     hold on;
     
-    PlotSource = rmfield(Source, 'normals');
+    PlotSource.vertices = Source.vertices;
+    PlotSource.faces = Source.faces;
     h = patch(PlotSource, 'facecolor', 'r', 'EdgeColor',  'none', ...
         'FaceAlpha', 0.5);
     material dull; light; grid on; xlabel('x'); ylabel('y'); zlabel('z');
@@ -203,7 +208,8 @@ if Options.rigidInit == 1
     end
 else
     % Otherwise initialize transformation matrix X with identity matrices
-    X = repmat([eye(3); [0 0 0]], nVertsSource, 1);
+%     X = repmat([eye(3); [0 0 0]], nVertsSource, 1);
+    X = repmat(Options.initX', nVertsSource, 1);
 end
 
 % get number of element in the set of stiffness parameters Options.alphaSet
@@ -344,7 +350,7 @@ for i = 1:nAlpha
                 alpha, deltaX, knnTime, lsolverTime);
         end
         
-        if deltaX <= Options.epsilon 
+        if deltaX <= Options.epsilon(i)
             break;
         end
     end

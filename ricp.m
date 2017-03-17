@@ -31,12 +31,14 @@ end
 % Optionally plot source and target surfaces
 if Options.plot == 1
     clf;
-    PlotTarget = rmfield(Target, 'normals');
+    PlotTarget.vertices = Target.vertices;
+    PlotTarget.faces = Target.faces;
     p = patch(PlotTarget, 'facecolor', 'b', 'EdgeColor',  'none', ...
               'FaceAlpha', 0.5);
     hold on;
     
-    PlotSource = rmfield(Source, 'normals');
+    PlotSource.vertices = Source.vertices;
+    PlotSource.faces = Source.faces;
     h = patch(PlotSource, 'facecolor', 'r', 'EdgeColor',  'none', ...
         'FaceAlpha', 0.5);
     material dull; light; grid on; xlabel('x'); ylabel('y'); zlabel('z');
@@ -69,7 +71,7 @@ disp('* Performing rigid ICP...');
 
 X = [R, t];
 vertsSource = [vertsSource, ones(nVertsSource, 1)];
-vertsTransformed = vertsSource*X;
+vertsTransformed = vertsSource*X';
 
 % Update plot
 if Options.plot == 1
