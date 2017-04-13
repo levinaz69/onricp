@@ -1,29 +1,9 @@
-%% head rigid
-sourceFile = 'data/head_20/template_transformed_subdiv.ply';
-targetFile = 'data/head_20/xxx.ply';
-sourceMarker = 'data/head_20/template_markers_transformed.xyz';
-targetMarker = 'data/head_20/total_without_faces_voxel_0.1_mls_0.3_add_faces_markers.xyz';
-Options.useMarker = 1;
-Options.normalWeighting = 0;
-Options.alphaSet = linspace(10, 1, 5);
-Options.epsilon = logspace(-3, -5, 5);
-
-
-%% head tps
-sourceFile = 'data/head_20/template_transformed_tpsTransformed.ply';
-targetFile = 'data/head_20/xxx.ply';
-sourceMarker = 'data/head_20/template_markers_transformed_tpsTransformed.xyz';
-targetMarker = 'data/head_20/total_without_faces_voxel_0.1_mls_0.3_add_faces_markers.xyz';
-Options.useMarker = 1;
-Options.normalWeighting = 0;
-Options.alphaSet = linspace(10, 1, 5);
-Options.epsilon = logspace(-3, -5, 5);
-
 %% leftfoot
-sourceFile = 'data/leftfoot_22/yyy.ply';
-targetFile = 'data/leftfoot_22/xxx.ply';
-sourceMarker = 'data/leftfoot_22/yyy.xyz';
-targetMarker = 'data/leftfoot_22/xxx.xyz';
+sourceFile = 'data/arm_4/template_transformed.ply';
+targetFile = 'data/arm_4/total_without_faces_voxel_0.1_mls_0.3_add_faces.ply';
+sourceMarker = 'data/arm_4/template_markers_transformed.xyz';
+targetMarker = 'data/arm_4/total_without_faces_voxel_0.1_mls_0.3_add_faces_markers.xyz';
+
 Options.useMarker = 1;
 Options.normalWeighting = 1;
 Options.alphaSet = linspace(1, 0.5, 5);
@@ -73,7 +53,7 @@ Options.beta = 1;
 %% Straightforward
 % % Perform rigid ICP
 % [~, Options.initX] = ricp(Source, Target, Options);
-
+% 
 % % Perform non-rigid ICP
 % Options.rigidInit = 0;
 % [pointsTransformed, X] = onricp(Source, Target, Options);

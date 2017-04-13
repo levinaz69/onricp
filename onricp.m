@@ -73,6 +73,9 @@ end
 if ~isfield(Options, 'ignoreBoundary')
     Options.ignoreBoundary = 1;
 end
+if ~isfield(Options, 'ignoreIntersects')
+    Options.ignoreIntersects = 0;
+end
 if ~isfield(Options, 'normalWeighting')
     Options.normalWeighting = 1;
 end
@@ -92,7 +95,7 @@ if ~isfield(Options, 'verbose')
     Options.verbose = 0;
 end
 if ~isfield(Options, 'initX')
-    Options.initX = [];
+    Options.initX = [eye(3), [0 0 0]'];
 end
 
 
@@ -207,7 +210,7 @@ if Options.rigidInit == 1
         drawnow;
     end
 else
-    % Otherwise initialize transformation matrix X with identity matrices
+    % Otherwise initialize transformation matrix X with identity matricesif
 %     X = repmat([eye(3); [0 0 0]], nVertsSource, 1);
     X = repmat(Options.initX', nVertsSource, 1);
 end
@@ -244,14 +247,14 @@ for i = 1:nAlpha
         U = vertsTarget(targetId,:);
         
 
-        % Optionally give zero weightings to transformations associated
+        % (Optionally, correspondence test 1) give zero weightings to transformations associated
         % with boundary target vertices.
         if Options.ignoreBoundary == 1
             tarBoundary = ismember(targetId, bdr);
             wVec = wVec .* ~tarBoundary;
         end
         
-        % Optionally transform surface normals to compare with target and
+        % (Optionally, correspondence test 2) transform surface normals to compare with target and
         % give zero weight if surface and transformed normals do not have
         % similar angles.
         if Options.normalWeighting == 1
@@ -263,6 +266,11 @@ for i = 1:nAlpha
             angle = atan2(crossNormalsNorm, dotNormals);
             wVec = wVec .* (angle < Options.normalDiffThreshold);
         end
+        
+        % (Optionally, correspondence test 3) 
+        if Options.ignoreIntersects == 1
+            intersectRayPolygon3d();
+        end    
             
         % Update weight matrix
         W = spdiags(wVec, 0, nVertsSource, nVertsSource);
