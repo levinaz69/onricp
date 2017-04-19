@@ -1,4 +1,4 @@
-function [ vertsTransformed, X ] = onricp( Source, Target, Options )
+function [ vertsTransformed, normalsTransformed, X ] = onricp( Source, Target, Options )
 % nricp performs an adaptive stiffness variant of non rigid ICP.
 %
 % This function deforms takes a dense set of landmarks points from a template
@@ -85,6 +85,9 @@ end
 if ~isfield(Options, 'useMarker')
     Options.useMarker = 0;
 end
+if ~isfield(Options, 'useMarkerIdx')
+    Options.useMarker = 0;
+end
 if ~isfield(Options, 'GPU')
     Options.GPU = 0;
 end
@@ -127,31 +130,64 @@ vertsTarget = Target.vertices;
 
 % Optionally get source / target normals
 if Options.normalWeighting == 1
-    normalsSource = Source.normals;
-    normalsTarget = Target.normals;
-    N = sparse(nVertsSource, 4 * nVertsSource);
-    for j = 1:nVertsSource
-        N(j,(4 * j-3):(4 * j)) = [normalsSource(j,:) 1];
-    end
+    disp('* Set normals...');
+    normalsSource = double(Source.normals);
+    normalsTarget = double(Target.normals);
+    
+    i = repelem(1:nVertsSource, 4); 
+    j = 4 * i + repmat(-3:0, 1, nVertsSource);
+    v = reshape([normalsSource ones(size(normalsSource, 1), 1)]', size(i));
+    N = sparse(i, j, v, nVertsSource, 4 * nVertsSource, 4 * nVertsSource);
+    
+%     N = sparse(nVertsSource, 4 * nVertsSource);
+%     for j = 1:nVertsSource
+%         N(j,(4 * j-3):(4 * j)) = [normalsSource(j,:) 1];
+%     end
+
 end
 
 % Get landmark vertices of source and target
 if Options.useMarker == 1
+    disp('* Set marker corespondences...');
     % Get source markers xyz
     markersSource = Source.markers;
     nMarkersSource = size(markersSource, 1);
     % Get target markers 
     markersTarget = Target.markers;
     
-    % Assume markers are xyz coordinates
-    markersSourseKnnId = knnsearch(vertsSource, markersSource);
-    DL = sparse(nMarkersSource, 4 * nVertsSource);
-    for i = 1:nMarkersSource
-        knnId = markersSourseKnnId(i);
-        DL(i,(4 * knnId-3):(4 * knnId)) = [vertsSource(knnId, :) 1];
-    end
+    if (Options.useMarkerIdx)
+        % if markers are given in indices
+        
+        i = repelem(1:nMarkersSource, 4); 
+        j = 4 * repelem(markersSource', 4) + repmat(-3:0, 1, nMarkersSource);
+        v = reshape([vertsSource(markersSource, :) ones(size(markersSource, 1), 1)]', size(i));
+        DL = sparse(i, j, v, nMarkersSource, 4 * nVertsSource, 4 * nMarkersSource);
 
-    UL = markersTarget;
+%        %DL = sparse(nMarkersSource, 4 * nVertsSource);
+%         for i = 1:nMarkersSource
+%             idx = markersSource(i);
+%             DL(i,(4 * idx-3):(4 * idx)) = [vertsSource(idx, :) 1];
+%         end
+
+        UL = vertsTarget(markersTarget, :);
+    else
+        % Assume markers are xyz coordinates
+        markersSourseKnnId = knnsearch(vertsSource, markersSource);
+        
+        i = repelem(1:nMarkersSource, 4); 
+        j = 4 * repelem(markersSourseKnnId', 4) + repmat(-3:0, 1, nMarkersSource);
+        v = reshape([vertsSource(markersSourseKnnId, :) ones(size(markersSourseKnnId, 1), 1)]', size(i));
+        DL = sparse(i, j, v, nMarkersSource, 4 * nVertsSource, 4 * nMarkersSource);
+        
+%         DL = sparse(nMarkersSource, 4 * nVertsSource);
+%         for i = 1:nMarkersSource
+%             knnId = markersSourseKnnId(i);
+%             DL(i,(4 * knnId-3):(4 * knnId)) = [vertsSource(knnId, :) 1];
+%         end
+
+        UL = markersTarget;
+    end
+    
 end
 
 % Get subset of target vertices if Options.biDirectional == 1
@@ -164,6 +200,7 @@ end
 G = diag([1 1 1 Options.gamm]);
 
 % Set incidence matrix M 
+disp('* Set incidence matrix M...');
 A = triangulation2adjacency(Source.faces, Source.vertices);
 M = adjacency2incidence(A)';
 
@@ -171,10 +208,16 @@ M = adjacency2incidence(A)';
 kron_M_G = kron(M, G);
 
 % Set matrix D (equation (8) in Amberg et al.)
-D = sparse(nVertsSource, 4 * nVertsSource);
-for i = 1:nVertsSource
-    D(i,(4 * i-3):(4 * i)) = [vertsSource(i,:) 1];
-end
+disp('* Set matrix D...');
+i = repelem(1:nVertsSource, 4); 
+j = 4 * i + repmat(-3:0, 1, nVertsSource);
+v = reshape([vertsSource ones(size(vertsSource, 1), 1)]', size(i));
+D = sparse(i, j, v, nVertsSource, 4 * nVertsSource, 4 * nVertsSource);
+
+% D = sparse(nVertsSource, 4 * nVertsSource);
+% for i = 1:nVertsSource
+%     D(i,(4 * i-3):(4 * i)) = [vertsSource(i,:) 1];
+% end
 
 % Set weights vector
 wVec = ones(nVertsSource,1);
@@ -245,7 +288,6 @@ for i = 1:nAlpha
         targetId = knnsearch(vertsTarget, vertsTransformed);
         knnTime = toc;
         U = vertsTarget(targetId,:);
-        
 
         % (Optionally, correspondence test 1) give zero weightings to transformations associated
         % with boundary target vertices.
@@ -368,9 +410,12 @@ if Options.verbose == 1
     fprintf('\nNon-rigid ICP Time: %fs\n', nricpTime);
 end
 
-
 % Compute transformed points 
 vertsTransformed = D*X;
+normalsTransformed = [];
+if Options.normalWeighting == 1
+    normalsTransformed = N*X;
+end
 
 if Options.snapTarget == 1
     % If Options.useNormals == 1 project along surface normals to target
