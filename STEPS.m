@@ -1,32 +1,36 @@
 clearvars;
 
-workPath = 'data/template_cut/head';
+subDirName = 'head';
+
+workPath = 'data/template_cut/';
+outputPath = strcat(workPath, 'OUTPUT/');
 sourceName = 'template';
 targetName = 'target';
 
 %% Set file paths
 basePath = pwd;
+subDirPath = strcat(workPath, '/', subDirName);
 
-sourceFile = strcat(workPath, '/', sourceName, '.ply');
-% targetFile = strcat(workPath, '/', targetName, '.ply');
-targetFile = strcat(workPath, '/../', targetName, '.ply');
-sourceMarker = strcat(workPath, '/', sourceName, '_markers.xyz');
-targetMarker = strcat(workPath, '/', targetName, '_markers.xyz');
-sourceFileTrans = strcat(workPath, '/', sourceName, '_transformed.ply');
-sourceMarkerTrans = strcat(workPath, '/', sourceName, '_markers_transformed.xyz');
-% targetBoundary = strcat(workPath, '/', targetName, '.bd');
-targetBoundary = strcat(workPath, '/../', targetName, '.bd');
+sourceFile = strcat(subDirPath, '/', sourceName, '.ply');
+% targetFile = strcat(subDirPath, '/', targetName, '.ply');
+targetFile = strcat(subDirPath, '/../', targetName, '.ply');
+sourceMarker = strcat(subDirPath, '/', sourceName, '_markers.xyz');
+targetMarker = strcat(subDirPath, '/', targetName, '_markers.xyz');
+sourceFileTrans = strcat(subDirPath, '/', sourceName, '_transformed.ply');
+sourceMarkerTrans = strcat(subDirPath, '/', sourceName, '_markers_transformed.xyz');
+% targetBoundary = strcat(subDirPath, '/', targetName, '.bd');
+targetBoundary = strcat(subDirPath, '/../', targetName, '.bd');
 
 
 %% Step 1: Set markers
-cd(workPath);
+cd(subDirPath);
 cmd = strjoin({'..\ManualRegistration', strcat('..\', targetName, '.ply'), strcat(sourceName, '.ply')});
 system(cmd);
 cd(basePath);
 
 
 %% Step 2: Similarity transformation
-cd(workPath);
+cd(subDirPath);
 cmd = strjoin({'..\LandmarkTransform', strcat(sourceName, '_markers.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceName, '.ply')});
 system(cmd);
 cd(basePath);
@@ -57,14 +61,14 @@ runOnricp
 
 % Write output
 if isfield(Out, 'colors')
-    writePlyVFNC(strcat(workPath, '/out.ply'), Out.vertices, Out.faces, Out.normals, Out.colors, 'binary_little_endian');
+    writePlyVFNC(strcat(outputPath, subDirName, '_out.ply'), Out.vertices, Out.faces, Out.normals, Out.colors, 'binary_little_endian');
 else 
-    writePlyVFN(strcat(workPath, '/out.ply'), Out.vertices, Out.faces, Out.normals, 'binary_little_endian');
+    writePlyVFN(strcat(outputPath, subDirName, '_out.ply'), Out.vertices, Out.faces, Out.normals, 'binary_little_endian');
 end
 
 
 %% Step 4: Remove overlaps
-Options.overlapDistThreshold = 0.06;
+Options.overlapDistThreshold = 0.05;
 Options.plot = 1;
 
 [OutCropped, knnDist] = removeOverlap(Out, Target, Options);
@@ -78,8 +82,8 @@ figure; pie(N, edges(2:end), edgeLabels);
 
 % Write output
 if isfield(OutCropped, 'colors')
-    writePlyVFNC(strcat(workPath, '/outCropped.ply'), OutCropped.vertices, OutCropped.faces, OutCropped.normals, OutCropped.colors, 'binary_little_endian');
+    writePlyVFNC(strcat(outputPath, subDirName, '_out_cropped.ply'), OutCropped.vertices, OutCropped.faces, OutCropped.normals, OutCropped.colors, 'binary_little_endian');
 else 
-    writePlyVFN(strcat(workPath, '/outCropped.ply'), OutCropped.vertices, OutCropped.faces, OutCropped.normals, 'binary_little_endian');
+    writePlyVFN(strcat(outputPath, subDirName, '_out_cropped.ply'), OutCropped.vertices, OutCropped.faces, OutCropped.normals, 'binary_little_endian');
 end
 
