@@ -1,4 +1,4 @@
-function [ vertsTransformed, normalsTransformed, X ] = onricp( Source, Target, Options )
+function [ vertsTransformed, normalsTransformed, X, colors ] = onricp( Source, Target, Options )
 % nricp performs an adaptive stiffness variant of non rigid ICP.
 %
 % This function deforms takes a dense set of landmarks points from a template
@@ -68,10 +68,13 @@ if ~isfield(Options, 'plot')
     Options.plot = 0;
 end
 if ~isfield(Options, 'rigidInit')
-    Options.rigidInit = 1;
+    Options.rigidInit = 0;
 end
 if ~isfield(Options, 'ignoreBoundary')
     Options.ignoreBoundary = 1;
+end
+if ~isfield(Options, 'ignoreBoundaryBool')
+    Options.ignoreBoundaryBool = 0;
 end
 if ~isfield(Options, 'ignoreIntersects')
     Options.ignoreIntersects = 0;
@@ -86,7 +89,7 @@ if ~isfield(Options, 'useMarker')
     Options.useMarker = 0;
 end
 if ~isfield(Options, 'useMarkerIdx')
-    Options.useMarker = 0;
+    Options.useMarkerIdx = 0;
 end
 if ~isfield(Options, 'GPU')
     Options.GPU = 0;
@@ -99,6 +102,9 @@ if ~isfield(Options, 'verbose')
 end
 if ~isfield(Options, 'initX')
     Options.initX = [eye(3), [0 0 0]'];
+end
+if ~isfield(Options, 'useColor')
+    Options.useColor = 0;
 end
 
 
@@ -295,6 +301,10 @@ for i = 1:nAlpha
             tarBoundary = ismember(targetId, bdr);
             wVec = wVec .* ~tarBoundary;
         end
+        if Options.ignoreBoundaryBool == 1
+            tarBoundary = Target.isBoundary(targetId);
+            wVec = wVec .* ~tarBoundary;
+        end
         
         % (Optionally, correspondence test 2) transform surface normals to compare with target and
         % give zero weight if surface and transformed normals do not have
@@ -396,7 +406,7 @@ for i = 1:nAlpha
         
         % print verbose information
         if Options.verbose == 1
-            fprintf('alpha = %.2f, dX = %f, knnTime = %fs, lsolverTime = %fs\n', ...
+            fprintf('alpha = %f, dX = %f, knnTime = %fs, lsolverTime = %fs\n', ...
                 alpha, deltaX, knnTime, lsolverTime);
         end
         
@@ -415,6 +425,12 @@ vertsTransformed = D*X;
 normalsTransformed = [];
 if Options.normalWeighting == 1
     normalsTransformed = N*X;
+end
+
+% Compute colors(use nearest point's color)
+colors = [];
+if Options.useColor == 1
+    colors = Target.colors(targetId,:);
 end
 
 if Options.snapTarget == 1

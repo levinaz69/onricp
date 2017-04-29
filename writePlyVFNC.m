@@ -1,4 +1,4 @@
-function writePlyVFN(filename,V,F,N,mode)
+function writePlyVFNC(filename,V,F,N,C,mode)
   % WRITEPLY wrapper for write_ply
   %
   % Inputs:
@@ -26,6 +26,9 @@ function writePlyVFN(filename,V,F,N,mode)
   fprintf(fid,'property float nx\n');
   fprintf(fid,'property float ny\n');
   fprintf(fid,'property float nz\n');
+  fprintf(fid,'property uchar red\n');
+  fprintf(fid,'property uchar green\n');
+  fprintf(fid,'property uchar blue\n');
   fprintf(fid,'element face %d\n',size(F,1));
   fprintf(fid,'property list int int vertex_indices\n');
   fprintf(fid,'end_header\n');
@@ -33,7 +36,7 @@ function writePlyVFN(filename,V,F,N,mode)
   switch mode
   case 'ascii'
     % do nothing
-    fprintf(fid,'%f %f %f %f %f %f\n',[V N]');
+    fprintf(fid,'%f %f %f %f %f %f %u %u %u\n',[V N C]');
     format = [repmat('%d ',1,size(FF,2)) '\n'];
     fprintf(fid,format,FF');
   case {'binary_little_endian','binary_big_endian'}
@@ -44,7 +47,11 @@ function writePlyVFN(filename,V,F,N,mode)
     case 'binary_big_endian'
       fid = fopen(filename,'a','ieee-be');
     end
-    fwrite(fid,[V N]','float');
+    for i = 1:size(V,1)
+        fwrite(fid,V(i,:)','float');
+        fwrite(fid,N(i,:)','float');
+        fwrite(fid,C(i,:)','uchar');
+    end
     fwrite(fid,FF','int');
   otherwise
     error('Unsupported format: %s',mode);
