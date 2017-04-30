@@ -1,9 +1,21 @@
-subDirNameList = {}
+%% Meta list
+baseDir = 'data';
+patchList = {'head', 'legs', 'larm', 'rarm', 'lfoot', 'rfoot'};
+modelList = {'FRM_0245', 'FRM_0259'};
 
-    subDirNameList = 'head2';
-    workPathList = 'data/FRM_0245/';
-    sourceNameList = 'template';
-    targetNameList = 'FRM_0245';
+%% Generate List
+subDirNameList = {};
+workPathList = {};
+sourceNameList = {};
+targetNameList = {};
+for model = modelList
+    for patch = patchList
+        subDirNameList = [subDirNameList, {patch}];
+        workPathList = [workPathList, {fullfile(baseDir, model)}];
+        sourceNameList = [sourceNameList, {'template'}];
+        targetNameList = [targetNameList, {model}];
+    end
+end
 
 for dirIndex = 1:length(subDirNameList)
 
