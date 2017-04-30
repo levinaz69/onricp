@@ -54,7 +54,7 @@ for dirIndex = 1:length(subDirNameList)
 
     %% Step 1: Set markers
     cd(fullfile(basePath, workPath, subDirName));
-    cmd = strjoin({fullfile(basePath, 'ManualRegistration'), strcat('..\', targetName, '.ply'), strcat(sourceName, '.ply')});
+    cmd = strjoin({fullfile(basePath, 'bin', 'ManualRegistration'), strcat('..\', targetName, '.ply'), strcat(sourceName, '.ply')});
     system(cmd);
     cd(basePath);
     

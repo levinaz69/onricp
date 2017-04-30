@@ -33,21 +33,21 @@ targetBoundary = strcat(subDirPath, '/../', targetName, '.bd');
 
 %% Step 1: Set markers
 cd(fullfile(basePath, workPath, subDirName));
-cmd = strjoin({fullfile(basePath, 'ManualRegistration'), strcat('..\', targetName, '.ply'), strcat(sourceName, '.ply')});
+cmd = strjoin({fullfile(basePath, 'bin', 'ManualRegistration'), strcat('..\', targetName, '.ply'), strcat(sourceName, '.ply')});
 system(cmd);
 cd(basePath);
 
 
 %% Step 2: Similarity transformation
 cd(fullfile(basePath, workPath, subDirName));
-cmd = strjoin({fullfile(basePath, 'LandmarkTransform'), strcat(sourceName, '_markers.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceName, '.ply')});
+cmd = strjoin({fullfile(basePath, 'bin', 'LandmarkTransform'), strcat(sourceName, '_markers.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceName, '.ply')});
 system(cmd);
 cd(basePath);
 clear Source;
 
 %% Step 2+: TPS transformation
 cd(fullfile(basePath, workPath, subDirName));
-cmd = strjoin({fullfile(basePath, 'TPSTransform'), strcat(sourceMarkerTransName, '.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceTransName, '.ply')});
+cmd = strjoin({fullfile(basePath, 'bin', 'TPSTransform'), strcat(sourceMarkerTransName, '.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceTransName, '.ply')});
 system(cmd);
 sourceFileTrans = strcat(subDirPath, '/', sourceTransName, '_tpsTransformed.ply');
 sourceMarkerTrans = strcat(subDirPath, '/', sourceMarkerTransName, '_tpsTransformed.xyz');
