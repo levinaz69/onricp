@@ -46,9 +46,6 @@ function [ vertsTransformed, normalsTransformed, X, colors ] = onricp( Source, T
 if ~isfield(Options, 'gamm')
     Options.gamm = 1;
 end
-if ~isfield(Options, 'beta')
-    Options.beta = 1;
-end
 if ~isfield(Options, 'lambda')
     Options.lambda = 1;
 end
@@ -56,7 +53,10 @@ if ~isfield(Options, 'epsilon')
     Options.epsilon = 1e-4;
 end
 if ~isfield(Options, 'alphaSet')
-    Options.alphaSet = linspace(100, 10, 20);
+    Options.alphaSet = linspace(1, 0.5, 5);
+end
+if ~isfield(Options, 'betaSet')
+    Options.betaSet = linspace(1, 0.5, 5);
 end
 if ~isfield(Options, 'biDirectional')
     Options.biDirectional = 0;
@@ -351,11 +351,11 @@ for i = 1:nAlpha
         if Options.useMarker == 1
             A = [...
                 A;
-                Options.beta .* DL
+                Options.betaSet(i) .* DL
                 ];
             B = [...
                 B;
-                Options.beta .* UL
+                Options.betaSet(i) .* UL
                 ];
         end
         
@@ -410,7 +410,7 @@ for i = 1:nAlpha
                 alpha, deltaX, knnTime, lsolverTime);
         end
         
-        if deltaX <= Options.epsilon(i)
+        if deltaX <= Options.epsilon
             break;
         end
     end

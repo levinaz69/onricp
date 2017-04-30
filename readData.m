@@ -10,7 +10,7 @@
     
 % end
 
-if ~exist('Target', 'var')
+% if ~exist('Target', 'var')
     pcTarget = pcread(targetFile);
     Target.vertices = double(pcTarget.Location);
     Target.normals = double(pcTarget.Normal);
@@ -26,7 +26,9 @@ if ~exist('Target', 'var')
         Target.isBoundary = logical(isBoundary);
     end
     
-end
+% end
+
+
 if (Options.useColor)
     Target.colors = pcTarget.Color;
 end
