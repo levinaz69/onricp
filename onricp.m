@@ -49,8 +49,8 @@ end
 if ~isfield(Options, 'lambda')
     Options.lambda = 1;
 end
-if ~isfield(Options, 'epsilon')
-    Options.epsilon = 1e-4;
+if ~isfield(Options, 'epsilonSet')
+    Options.epsilonSet = logspace(-3, -5, 5);;
 end
 if ~isfield(Options, 'alphaSet')
     Options.alphaSet = linspace(1, 0.5, 5);
@@ -410,7 +410,7 @@ for i = 1:nAlpha
                 alpha, deltaX, knnTime, lsolverTime);
         end
         
-        if deltaX <= Options.epsilon
+        if deltaX <= Options.epsilonSet(i)
             break;
         end
     end

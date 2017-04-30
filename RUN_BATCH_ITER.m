@@ -83,7 +83,7 @@ for dirIndex = 1:length(subDirNameList)
     Options.alphaSet = 2.^linspace(0, -4, 5);
     % Options.alphaSet = 2.^(15:-1:5);
     Options.betaSet = linspace(1, 0, 5);
-    Options.epsilon = 1e-5;
+    Options.epsilonSet = logspace(-3, -5, 5);
 
     Options.useColor = 1;
     Options.useMarker = 1;
