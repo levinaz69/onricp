@@ -1,9 +1,9 @@
 clearvars;
 
-subDirName = 'legs';
-workPath = 'data/FRM_0245/';
+subDirName = 'legs2';
+workPath = 'data/FRM_0207/';
 sourceName = 'template';
-targetName = 'FRM_0245';
+targetName = 'FRM_0207';
 
 
 %% 0: Set file paths
@@ -45,21 +45,21 @@ system(cmd);
 cd(basePath);
 clear Source;
 
-%% Step 2+: TPS transformation
-cd(fullfile(basePath, workPath, subDirName));
-cmd = strjoin({fullfile(basePath, 'bin', 'TPSTransform'), strcat(sourceMarkerTransName, '.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceTransName, '.ply')});
-system(cmd);
-sourceFileTrans = strcat(subDirPath, '/', sourceTransName, '_tpsTransformed.ply');
-sourceMarkerTrans = strcat(subDirPath, '/', sourceMarkerTransName, '_tpsTransformed.xyz');
-cd(basePath);
-clear Source;
+% %% Step 2+: TPS transformation
+% cd(fullfile(basePath, workPath, subDirName));
+% cmd = strjoin({fullfile(basePath, 'bin', 'TPSTransform'), strcat(sourceMarkerTransName, '.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceTransName, '.ply')});
+% system(cmd);
+% sourceFileTrans = strcat(subDirPath, '/', sourceTransName, '_tpsTransformed.ply');
+% sourceMarkerTrans = strcat(subDirPath, '/', sourceMarkerTransName, '_tpsTransformed.xyz');
+% cd(basePath);
+% clear Source;
 
 
 %% Step 3: Non-rigid iterative closest point
 cd(basePath);
 %%%% Options BEGIN
 Options.alphaSet = linspace(1, 0.5, 5);
-Options.betaSet = linspace(1, 0, 5);
+Options.betaSet = linspace(1, 0.5, 5);
 % Options.alphaSet = linspace(1, 0.5, 5);
 % Options.alphaSet = 2.^linspace(0, -4, 5);
 % Options.alphaSet = 2.^(15:-1:5);
@@ -92,8 +92,8 @@ end
 cd(basePath);
 
 %%%%
-Options.overlapDistThreshold = 0.05;
-Options.plot = 0;
+Options.overlapDistThreshold = 0.6;
+Options.plot = 1;
 
 [OutCropped, knnDist] = removeOverlap(Out, Target, Options);
 
