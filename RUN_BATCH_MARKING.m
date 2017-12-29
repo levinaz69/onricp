@@ -1,7 +1,7 @@
 %% Meta list
-baseDir = 'data';
-patchList = {'head', 'legs', 'larm', 'rarm', 'lfoot', 'rfoot'};
-modelList = {'FRM_0245', 'FRM_0259'};
+baseDir = 'data/2017-12/';
+patchList = {'head2', 'legs2', 'larm', 'rarm', 'lfoot', 'rfoot','left_hand','right_hand'};
+modelList = {'0093'};
 
 %% Generate List
 subDirNameList = {};
@@ -10,16 +10,14 @@ sourceNameList = {};
 targetNameList = {};
 for model = modelList
     for patch = patchList
-        subDirNameList = [subDirNameList, {patch}];
-        workPathList = [workPathList, {fullfile(baseDir, model)}];
-        sourceNameList = [sourceNameList, {'template'}];
-        targetNameList = [targetNameList, {model}];
+        subDirNameList = [subDirNameList, patch];
+        workPathList = [workPathList, fullfile(baseDir, model)];
+        sourceNameList = [sourceNameList, 'template'];
+        targetNameList = [targetNameList, 'target'];
     end
 end
 
 for dirIndex = 1:length(subDirNameList)
-
-    clearvars;
 
     subDirName = subDirNameList{dirIndex};
     workPath = workPathList{dirIndex};
@@ -31,7 +29,7 @@ for dirIndex = 1:length(subDirNameList)
     basePath = pwd;
     subDirPath = strcat(workPath, '/', subDirName);
 
-    outputPath = strcat(workPath, 'OUTPUT/');
+    outputPath = strcat(workPath, '/OUTPUT/');
     if exist(outputPath, 'dir') ~= 7
         mkdir(outputPath);
     end
@@ -54,7 +52,7 @@ for dirIndex = 1:length(subDirNameList)
 
     %% Step 1: Set markers
     cd(fullfile(basePath, workPath, subDirName));
-    cmd = strjoin({fullfile(basePath, 'bin', 'ManualRegistration'), strcat('..\', targetName, '.ply'), strcat(sourceName, '.ply')});
+    cmd = strjoin({fullfile(basePath, 'bin', 'ManualRegistration'), strcat('../', targetName, '.ply'), strcat(sourceName, '.ply')});
     system(cmd);
     cd(basePath);
     

@@ -1,5 +1,5 @@
 %% Meta list
-baseDir = 'data\2017-12\';
+baseDir = 'data/2017-12/';
 patchList = {'head2', 'legs2', 'larm', 'rarm', 'lfoot', 'rfoot','left_hand','right_hand'};
 modelList = {'0093'};
 
@@ -16,6 +16,7 @@ for model = modelList
         targetNameList = [targetNameList, 'target'];
     end
 end
+
 
 for dirIndex = 1:length(subDirNameList)
 
@@ -50,63 +51,24 @@ for dirIndex = 1:length(subDirNameList)
     % targetBoundary = strcat(subDirPath, '/', targetName, '.bd');
     targetBoundary = strcat(subDirPath, '/../', targetName, '.bd');
 
-    %% Step 2: Similarity transformation
-    cd(fullfile(basePath, workPath, subDirName));
-    cmd = strjoin({fullfile(basePath, 'bin', 'LandmarkTransform'), strcat(sourceName, '_markers.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceName, '.ply')});
-    system(cmd);
-    cd(basePath);
-    clear Source;
-
-    %% Step 2+: TPS transformation
-    cd(fullfile(basePath, workPath, subDirName));
-    cmd = strjoin({fullfile(basePath, 'bin', 'TPSTransform'), strcat(sourceMarkerTransName, '.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceTransName, '.ply')});
-    system(cmd);
-    sourceFileTrans = strcat(subDirPath, '/', sourceTransName, '_tpsTransformed.ply');
-    sourceMarkerTrans = strcat(subDirPath, '/', sourceMarkerTransName, '_tpsTransformed.xyz');
-    cd(basePath);
-    clear Source;
-
-
-    %% Step 3: Non-rigid iterative closest point
-    cd(basePath);
-    %%%% Options BEGIN
-    Options.alphaSet = linspace(1, 0.2, 8);
-    Options.betaSet = linspace(1, 0, 8);
-    % Options.alphaSet = linspace(1, 0.5, 5);
-    % Options.alphaSet = 2.^linspace(0, -4, 5);
-    % Options.alphaSet = 2.^(15:-1:5);
-    % Options.betaSet = linspace(1, 0, 5);
-    Options.epsilonSet = logspace(-4, -6, 8);
-    Options.iterThreshold = 20;
-
-    Options.biDirectional = 0;
-    Options.useColor = 1;
-    Options.useMarker = 1;
-    Options.useMarkerIdx = 0;
-    Options.ignoreBoundary = 0;
-    Options.ignoreBoundaryBool = 1;
-    Options.normalWeighting = 1;
-    Options.verbose = 1;
-    Options.plot = 0;
-
-    %%%% Options END
-
-    readData
-
-    runOnricp
-
-    % Write output
-    if isfield(Out, 'colors')
-        writePlyVFNC(strcat(outputPath, subDirName, '_out.ply'), Out.vertices, Out.faces, Out.normals, Out.colors, 'binary_little_endian');
-    else 
-        writePlyVFN(strcat(outputPath, subDirName, '_out.ply'), Out.vertices, Out.faces, Out.normals, 'binary_little_endian');
-    end
-
     %% Step 4: Remove overlaps
     cd(basePath);
-
+    
+    Options.ignoreBoundary = 0;
+    Options.ignoreBoundaryBool = 1;
+    Options.useColor = 1;
+    Options.useMarker = 1;
+    
+    readData
+    
+    outFile = strcat(outputPath, subDirName, '_out.ply');
+    pcOut = pcread(outFile);
+    Out.vertices = double(pcOut.Location);
+    Out.normals = double(pcOut.Normal);
+    [~, Out.faces] = readPLY(outFile);
+    
     %%%%
-    Options.overlapDistThreshold = 0.6;
+    Options.overlapDistThreshold = 2;
     Options.plot = 0;
 
     [OutCropped, knnDist] = removeOverlap(Out, Target, Options);

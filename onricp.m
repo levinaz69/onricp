@@ -58,6 +58,9 @@ end
 if ~isfield(Options, 'betaSet')
     Options.betaSet = linspace(1, 0.5, 5);
 end
+if ~isfield(Options, 'iterThreshold')
+    Options.iterThreshold = 30;
+end
 if ~isfield(Options, 'biDirectional')
     Options.biDirectional = 0;
 end
@@ -278,7 +281,9 @@ for i = 1:nAlpha
     % Enter inner loop. For each stiffness setting alternate between 
     % updating correspondences and getting optimal transformations X. 
     % Break the loop when consecutive transformations are similar.
-    while true
+    iterN = 0;
+    while iterN < Options.iterThreshold
+        iterN = iterN + 1;
         % Transform source points by current transformation matrix X
         vertsTransformed = D*X;
         

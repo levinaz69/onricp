@@ -1,16 +1,16 @@
 clearvars;
 
-subDirName = 'legs2';
-workPath = 'data/FRM_0207/';
+subDirName = 'rfoot';
+workPath = 'data/2017-12/0093/';
 sourceName = 'template';
-targetName = 'FRM_0207';
+targetName = 'target';
 
 
 %% 0: Set file paths
 basePath = pwd;
 subDirPath = strcat(workPath, '/', subDirName);
 
-outputPath = strcat(workPath, 'OUTPUT/');
+outputPath = strcat(workPath, '/OUTPUT/');
 if exist(outputPath, 'dir') ~= 7
     mkdir(outputPath);
 end
@@ -21,6 +21,7 @@ targetFile = strcat(subDirPath, '/../', targetName, '.ply');
 
 sourceMarker = strcat(subDirPath, '/', sourceName, '_markers.xyz');
 targetMarker = strcat(subDirPath, '/', targetName, '_markers.xyz');
+
 
 sourceTransName = strcat(sourceName, '_transformed');
 sourceMarkerTransName = strcat(sourceName, '_markers_transformed');
@@ -33,7 +34,7 @@ targetBoundary = strcat(subDirPath, '/../', targetName, '.bd');
 
 %% Step 1: Set markers
 cd(fullfile(basePath, workPath, subDirName));
-cmd = strjoin({fullfile(basePath, 'bin', 'ManualRegistration'), strcat('..\', targetName, '.ply'), strcat(sourceName, '.ply')});
+cmd = strjoin({fullfile(basePath, 'bin', 'ManualRegistration'), strcat('../', targetName, '.ply'), strcat(sourceName, '.ply')});
 system(cmd);
 cd(basePath);
 
@@ -45,27 +46,29 @@ system(cmd);
 cd(basePath);
 clear Source;
 
-% %% Step 2+: TPS transformation
-% cd(fullfile(basePath, workPath, subDirName));
-% cmd = strjoin({fullfile(basePath, 'bin', 'TPSTransform'), strcat(sourceMarkerTransName, '.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceTransName, '.ply')});
-% system(cmd);
-% sourceFileTrans = strcat(subDirPath, '/', sourceTransName, '_tpsTransformed.ply');
-% sourceMarkerTrans = strcat(subDirPath, '/', sourceMarkerTransName, '_tpsTransformed.xyz');
-% cd(basePath);
-% clear Source;
+%% Step 2+: TPS transformation
+cd(fullfile(basePath, workPath, subDirName));
+cmd = strjoin({fullfile(basePath, 'bin', 'TPSTransform'), strcat(sourceMarkerTransName, '.xyz'), strcat(targetName, '_markers.xyz'), strcat(sourceTransName, '.ply')});
+system(cmd);
+sourceFileTrans = strcat(subDirPath, '/', sourceTransName, '_tpsTransformed.ply');
+sourceMarkerTrans = strcat(subDirPath, '/', sourceMarkerTransName, '_tpsTransformed.xyz');
+cd(basePath);
+clear Source;
 
 
 %% Step 3: Non-rigid iterative closest point
 cd(basePath);
 %%%% Options BEGIN
-Options.alphaSet = linspace(1, 0.5, 5);
-Options.betaSet = linspace(1, 0.5, 5);
+Options.alphaSet = linspace(1, 0.2, 8);
+Options.betaSet = linspace(1, 0, 8);
 % Options.alphaSet = linspace(1, 0.5, 5);
 % Options.alphaSet = 2.^linspace(0, -4, 5);
 % Options.alphaSet = 2.^(15:-1:5);
 % Options.betaSet = linspace(1, 0, 5);
-Options.epsilonSet = logspace(-3, -5, 5);
+Options.epsilonSet = logspace(-4, -6, 8);
+Options.iterThreshold = 20;
 
+Options.biDirectional = 0;
 Options.useColor = 1;
 Options.useMarker = 1;
 Options.useMarkerIdx = 0;
@@ -74,6 +77,7 @@ Options.ignoreBoundaryBool = 1;
 Options.normalWeighting = 1;
 Options.verbose = 1;
 Options.plot = 0;
+
 %%%% Options END
 
 readData
